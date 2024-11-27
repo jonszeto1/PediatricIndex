@@ -1,0 +1,122 @@
+
+var dataset1 = ee.ImageCollection('NASA/NEX-DCP30_ENSEMBLE_STATS')
+  .filterDate('2065-01-01', '2099-12-31')
+  .map(function(image){return image.clip(roi)})
+  .filter(ee.Filter.or(
+    ee.Filter.stringContains('scenario', 'rcp85')));
+
+var dataset2 = ee.ImageCollection('NASA/NEX-DCP30_ENSEMBLE_STATS')
+  .filterDate('2030-01-01', '2064-12-31')
+  .map(function(image){return image.clip(roi)})
+  .filter(ee.Filter.or(
+    ee.Filter.stringContains('scenario', 'rcp85')));
+    
+
+var dataset3 = ee.ImageCollection('NASA/NEX-DCP30_ENSEMBLE_STATS')
+  .filterDate('2065-01-01', '2099-12-31')
+  .map(function(image){return image.clip(roi)})
+  .filter(ee.Filter.or(
+    ee.Filter.stringContains('scenario', 'rcp45')));
+    
+
+var dataset4 = ee.ImageCollection('NASA/NEX-DCP30_ENSEMBLE_STATS')
+  .filterDate('2030-01-01', '2064-12-31')
+  .map(function(image){return image.clip(roi)})
+  .filter(ee.Filter.or(
+    ee.Filter.stringContains('scenario', 'rcp45')));
+    
+var monthlyMedianMaxAirTemperature_latecent85 = dataset1.select('tasmax_median');
+var monthlyMedianMaxAirTemperature_midcent85 = dataset2.select('tasmax_median');
+var monthlyMedianMaxAirTemperature_latecent45 = dataset3.select('tasmax_median');
+var monthlyMedianMaxAirTemperature_midcent45 = dataset4.select('tasmax_median');
+
+var median_MMMAT_latecen85 = monthlyMedianMaxAirTemperature_latecent85
+.mean();
+var clipped_MMMAT_latecen85 = median_MMMAT_latecen85.clip(roi);
+
+var median_MMMAT_latecen45 = monthlyMedianMaxAirTemperature_latecent45
+.mean();
+var clipped_MMMAT_latecen45 = median_MMMAT_latecen45.clip(roi);
+
+var median_MMMAT_midcen85 = monthlyMedianMaxAirTemperature_midcent85
+.mean();
+var clipped_MMMAT_midcen85 = median_MMMAT_midcen85.clip(roi);
+
+var median_MMMAT_midcen45 = monthlyMedianMaxAirTemperature_midcent45
+.mean();
+var clipped_MMMAT_midcen45 = median_MMMAT_midcen45.clip(roi);
+
+
+//Export.table.toDrive({
+//  collection: ee.FeatureCollection(monthlyMeanMaxAirTemperatureTable),
+  //collection: ee.FeatureCollection(monthlyMaxTemperatureTable),
+  //description: 'monthly_max_temperature',
+  //selectors: ['date', 'scenario', 'model', 'max'],
+//});
+
+//Map.addLayer(monthlyMedianMaxAirTemperature_latecent85, monthlyAirTemperatureVis)
+//Map.addLayer(monthlyMedianMaxAirTemperature_midcent85, monthlyAirTemperatureVis) 
+//Map.addLayer(monthlyMedianMaxAirTemperature_latecent45, monthlyAirTemperatureVis)
+//Map.addLayer(monthlyMedianMaxAirTemperature_midcent45, monthlyAirTemperatureVis) 
+
+//Map.addLayer(clipped_MMMAT_latecen85, monthlyAirTemperatureVis, "latecen85")
+//Map.addLayer(clipped_MMMAT_midcen85, monthlyAirTemperatureVis, "midcen85")
+//Map.addLayer(clipped_MMMAT_latecen45, monthlyAirTemperatureVis, "latecen45")
+//Map.addLayer(clipped_MMMAT_midcen45, monthlyAirTemperatureVis, "midcen45")
+
+var latecen85C = clipped_MMMAT_latecen85.subtract(273.15);
+var latecen85F = latecen85C.multiply(1.8).add(32);
+
+var midcen85C = clipped_MMMAT_midcen85.subtract(273.15);
+var midcen85F = midcen85C.multiply(1.8).add(32);
+
+var latecen45C = clipped_MMMAT_latecen45.subtract(273.15);
+var latecen45F = latecen45C.multiply(1.8).add(32);
+
+var midcen45C = clipped_MMMAT_midcen45.subtract(273.15);
+var midcen45F = midcen45C.multiply(1.8).add(32);
+
+var monthlyAirTemperatureVis = {
+  min: 0.0,
+  max: 140.0,
+  palette: ['green', 'yellow', 'red', 'white'],
+};
+
+
+Map.addLayer(latecen85F,monthlyAirTemperatureVis, "latecen85");
+Map.addLayer(midcen85F, monthlyAirTemperatureVis, "midcen85");
+Map.addLayer(latecen45F, monthlyAirTemperatureVis,"latecen45");
+Map.addLayer(midcen45F, monthlyAirTemperatureVis,"midcen45");
+
+
+var difflatemonthlyAirTemperatureVis = {
+  min: 2.0,
+  max: 4.8,
+  palette: ['green', 'yellow', 'red', 'white'],
+};
+
+var diffmidmonthlyAirTemperatureVis = {
+  min: 0.5,
+  max: 1.5,
+  palette: ['green', 'yellow', 'red', 'white'],
+};
+
+var deltaLatecent = latecen85F.subtract(latecen45F);
+var deltamidcent = midcen85F.subtract(midcen45F);
+
+Map.addLayer(deltaLatecent, difflatemonthlyAirTemperatureVis, "deltaLatecent")
+Map.addLayer(deltamidcent, diffmidmonthlyAirTemperatureVis, "deltamidcent")
+Map.addLayer(roi)
+Export.image.toDrive({
+  image: deltaLatecent,
+  description: 'latecentury delta',
+  region: roi,
+  fileFormat: 'GeoTIFF',
+});
+
+Export.image.toDrive({
+  image: deltamidcent,
+  description: 'midcentury delta',
+  region: roi,
+  fileFormat: 'GeoTIFF',
+});
