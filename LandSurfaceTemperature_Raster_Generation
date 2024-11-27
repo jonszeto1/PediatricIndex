@@ -1,0 +1,80 @@
+var diffmidmonthlyAirTemperatureVis = { //three variables below all setting up so you can visualize the maps
+  min: 60,
+  max: 100,
+  palette: ['green', 'yellow', 'red', 'white'],
+};
+var landSurfaceTemperatureVis = {
+  min: 13000.0,
+  max: 16500.0,
+  palette: [
+    '040274', '040281', '0502a3', '0502b8', '0502ce', '0502e6',
+    '0602ff', '235cb1', '307ef3', '269db1', '30c8e2', '32d3ef',
+    '3be285', '3ff38f', '86e26f', '3ae237', 'b5e22e', 'd6e21f',
+    'fff705', 'ffd611', 'ffb613', 'ff8b13', 'ff6e08', 'ff500d',
+    'ff0000', 'de0101', 'c21301', 'a71001', '911003'
+  ],
+};
+
+var imageVisParam = {
+  min: 0,
+  max: 31,
+  palette: [
+    '040274', '040281', '0502a3', '0502b8', '0502ce', '0502e6',
+    '0602ff', '235cb1', '307ef3', '269db1', '30c8e2', '32d3ef',
+    '3be285', '3ff38f', '86e26f', '3ae237', 'b5e22e', 'd6e21f',
+    'fff705', 'ffd611', 'ffb613', 'ff8b13', 'ff6e08', 'ff500d',
+    'ff0000', 'de0101', 'c21301', 'a71001', '911003'
+  ],
+};
+var JuneNorms19012001F = JuneNorms19012001C.multiply(1.8).add(32); //convert from Celsius to fahrenheit
+var JulyNorms19012001F = JulyNorms19012001C.multiply(1.8).add(32);
+var AugustNorms19012001F = AugustNorms19012001C.multiply(1.8).add(32);
+var JuneNorms19012001K = JuneNorms19012001C.add(273.15); //convert from celcius to kelvin
+var JulyNorms19012001K = JulyNorms19012001C.add(273.15);
+var AugustNorms19012001K = AugustNorms19012001C.add(273.15);
+var JuneNorms19012001KCo = JuneNorms19012001K.multiply(50); //scale values up to scale of MODIS to be able to compare to satellite
+var JulyNorms19012001KCo = JulyNorms19012001K.multiply(50);
+var AugustNorms19012001KCo = AugustNorms19012001K.multiply(50);
+
+//Map.addLayer(JuneNorms19012001KCo, diffmidmonthlyAirTemperatureVis, "JuneNorms") //If you wanted to visualize the normals
+//Map.addLayer(JulyNorms19012001F, diffmidmonthlyAirTemperatureVis, "JulyNorms")
+//Map.addLayer(AugustNorms19012001F, diffmidmonthlyAirTemperatureVis, "AugustNorms")
+
+var dataset = ee.ImageCollection('MODIS/061/MOD11A1')
+                  .filter(ee.Filter.date('2024-08-01', '2024-09-01')); //defines image collection dataset
+                 
+var subtracted = dataset.select('LST_Day_1km').map(function (image) {
+  return image.subtract(AugustNorms19012001KCo).clip(roi) //subtracts the climate normals from each image in the dataset and clips it to tristate area
+})  
+var landSurfaceTemperatureMap = dataset.select('LST_Day_1km')
+    .map(function(image){return image.clip(roi)}); //if you want to visualize the dataset
+  
+
+//Map.addLayer(landSurfaceTemperatureMap, landSurfaceTemperatureVis, 'Land Surface Temperature');
+Map.addLayer(subtracted);  
+
+var anomalies = subtracted.map(function (image){ 
+  
+  var anomalyImage = image.gte(0);
+  
+  return anomalyImage;
+//this function creates a new variable for each cell in the raster of each image that 
+//is equal to 1 or 0 depending on if the value of the cell is greater than 0
+//Because we subtracted the 1901-2001 normals from the images, if their value is greater than 0
+// than the value of the cell in that image must have been higher than the normal, and thus
+//should be counted as an extreme heat anomaly
+});
+
+print(anomalies);
+
+var count = ee.ImageCollection(anomalies).sum(); //creates a new raster where each cell is the number of anomalies over the month
+
+Map.addLayer(count, imageVisParam, 'count');
+var Output = count.float();
+
+Export.image.toDrive({
+  image: Output,
+  description: 'CentAugust2024anomalycountLST',
+  region: roi,
+  fileFormat: 'GeoTIFF',
+});
